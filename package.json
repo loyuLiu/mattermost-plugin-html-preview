@@ -1,0 +1,11 @@
+{
+  "name": "@loyuLiu/mattermost-plugin-html-preview",
+  "version": "v0.0.0",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/loyuLiu/mattermost-plugin-html-preview.git"
+  }
+}

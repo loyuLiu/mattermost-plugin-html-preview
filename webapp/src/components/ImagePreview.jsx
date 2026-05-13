@@ -2,60 +2,30 @@ import React, {useState, useEffect, useCallback, useRef} from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
 
-const HtmlFilePreview = ({fileInfo, post, theme}) => {
-    const [htmlContent, setHtmlContent] = useState('');
-    const [iframeSrc, setIframeSrc] = useState(null);
+const ImagePreview = ({fileInfo, post, theme}) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isExpanded, setIsExpanded] = useState(false);
     const [showFullscreen, setShowFullscreen] = useState(false);
+    const [imageDimensions, setImageDimensions] = useState({width: 0, height: 0});
     const containerRef = useRef(null);
+    const imageRef = useRef(null);
 
-    const fetchHtmlContent = useCallback(async () => {
-        setLoading(true);
-        setError('');
-        try {
-            const url = `/api/v4/files/${fileInfo.id}`;
-            const response = await fetch(url, {
-                credentials: 'same-origin'
-            });
+    const imageUrl = `/api/v4/files/${fileInfo.id}`;
 
-            if (!response.ok) {
-                throw new Error(`Failed to fetch file: ${response.status}`);
-            }
+    const handleImageLoad = useCallback((e) => {
+        const img = e.target;
+        setImageDimensions({
+            width: img.naturalWidth,
+            height: img.naturalHeight
+        });
+        setLoading(false);
+    }, []);
 
-            const text = await response.text();
-            
-            const cspMeta = '<meta http-equiv="Content-Security-Policy" content="default-src * \'unsafe-inline\' \'unsafe-eval\' data: blob:;">';
-            let modifiedHtml = text;
-            
-            if (modifiedHtml.includes('<head>')) {
-                modifiedHtml = modifiedHtml.replace('<head>', '<head>' + cspMeta);
-            } else if (modifiedHtml.includes('<HEAD>')) {
-                modifiedHtml = modifiedHtml.replace('<HEAD>', '<HEAD>' + cspMeta);
-            } else {
-                modifiedHtml = cspMeta + modifiedHtml;
-            }
-            
-            const blob = new Blob([modifiedHtml], {type: 'text/html'});
-            const blobUrl = URL.createObjectURL(blob);
-            setIframeSrc(blobUrl);
-            setHtmlContent(modifiedHtml);
-        } catch (err) {
-            setError(`Failed to load HTML preview: ${err.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }, [fileInfo.id]);
-
-    useEffect(() => {
-        fetchHtmlContent();
-        return () => {
-            if (iframeSrc) {
-                URL.revokeObjectURL(iframeSrc);
-            }
-        };
-    }, [fetchHtmlContent]);
+    const handleImageError = useCallback(() => {
+        setError('Failed to load image preview');
+        setLoading(false);
+    }, []);
 
     useEffect(() => {
         if (containerRef.current) {
@@ -94,7 +64,6 @@ const HtmlFilePreview = ({fileInfo, post, theme}) => {
         overflow: 'hidden',
         width: '100%',
         maxWidth: '100%',
-        height: isExpanded ? '80vh' : '400px',
         display: 'flex',
         flexDirection: 'column',
     };
@@ -161,13 +130,23 @@ const HtmlFilePreview = ({fileInfo, post, theme}) => {
         flexShrink: 0,
     };
 
-    const iframeStyle = {
+    const imageContainerStyle = {
         width: '100%',
-        flex: '1',
-        border: 'none',
-        backgroundColor: '#ffffff',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: theme?.centerChannelBg ? theme.centerChannelBg + '50' : '#f9f9f9',
+        minHeight: isExpanded ? 'auto' : '300px',
+        maxHeight: isExpanded ? 'none' : '500px',
+        overflow: 'hidden',
+    };
+
+    const imageStyle = {
+        maxWidth: '100%',
+        maxHeight: isExpanded ? 'none' : '500px',
+        height: 'auto',
         display: 'block',
-        minHeight: '200px',
+        objectFit: 'contain',
     };
 
     const fullscreenOverlayStyle = {
@@ -177,7 +156,7 @@ const HtmlFilePreview = ({fileInfo, post, theme}) => {
         right: 0,
         bottom: 0,
         zIndex: 10000,
-        backgroundColor: theme?.centerChannelBg || '#ffffff',
+        backgroundColor: theme?.centerChannelBg || '#000000',
         display: 'flex',
         flexDirection: 'column',
     };
@@ -187,21 +166,37 @@ const HtmlFilePreview = ({fileInfo, post, theme}) => {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '12px 20px',
-        backgroundColor: theme?.sidebarHeaderBg || '#f5f5f5',
+        backgroundColor: theme?.sidebarHeaderBg || '#333333',
         borderBottom: `1px solid ${theme?.centerChannelColor ? theme.centerChannelColor + '20' : '#e0e0e0'}`,
     };
 
-    const fullscreenIframeStyle = {
-        width: '100%',
+    const fullscreenImageContainerStyle = {
         flex: '1',
-        border: 'none',
-        backgroundColor: '#ffffff',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'auto',
+        padding: '20px',
+    };
+
+    const fullscreenImageStyle = {
+        maxWidth: '100%',
+        maxHeight: '100%',
+        objectFit: 'contain',
     };
 
     if (loading) {
         return (
             <div style={containerStyle}>
-                <div style={loadingStyle}>Loading HTML preview...</div>
+                <div style={headerStyle}>
+                    <div style={headerTitleStyle}>
+                        <svg style={iconStyle} viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                        <span>{fileInfo.name}</span>
+                    </div>
+                </div>
+                <div style={loadingStyle}>Loading image preview...</div>
             </div>
         );
     }
@@ -212,7 +207,7 @@ const HtmlFilePreview = ({fileInfo, post, theme}) => {
                 <div style={headerStyle}>
                     <div style={headerTitleStyle}>
                         <svg style={iconStyle} viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 20V4h5v7h7v9H6z"/>
+                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
                         </svg>
                         <span>{fileInfo.name}</span>
                     </div>
@@ -230,21 +225,23 @@ const HtmlFilePreview = ({fileInfo, post, theme}) => {
             <div style={fullscreenHeaderStyle}>
                 <div style={headerTitleStyle}>
                     <svg style={iconStyle} viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 20V4h5v7h7v9H6z"/>
+                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
                     </svg>
-                    <span>HTML Preview: {fileInfo.name}</span>
+                    <span>Image Preview: {fileInfo.name}</span>
                 </div>
                 <div>
                     <button style={buttonStyle} onClick={handleDownload}>Download</button>
                     <button style={buttonStyle} onClick={() => setShowFullscreen(false)}>Close</button>
                 </div>
             </div>
-            <iframe
-                src={iframeSrc}
-                style={fullscreenIframeStyle}
-                sandbox="allow-scripts allow-same-origin allow-popups"
-                title={`Preview of ${fileInfo.name}`}
-            />
+            <div style={fullscreenImageContainerStyle}>
+                <img
+                    ref={imageRef}
+                    src={imageUrl}
+                    alt={fileInfo.name}
+                    style={fullscreenImageStyle}
+                />
+            </div>
         </div>,
         document.body
     ) : null;
@@ -255,9 +252,9 @@ const HtmlFilePreview = ({fileInfo, post, theme}) => {
                 <div style={headerStyle}>
                     <div style={headerTitleStyle}>
                         <svg style={iconStyle} viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 20V4h5v7h7v9H6z"/>
+                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
                         </svg>
-                        <span>HTML Preview: {fileInfo.name}</span>
+                        <span>Image Preview: {fileInfo.name}</span>
                     </div>
                     <div>
                         <button style={buttonStyle} onClick={handleToggleExpand}>
@@ -267,15 +264,21 @@ const HtmlFilePreview = ({fileInfo, post, theme}) => {
                         <button style={buttonStyle} onClick={handleDownload}>Download</button>
                     </div>
                 </div>
-                <iframe
-                    src={iframeSrc}
-                    style={iframeStyle}
-                    sandbox="allow-scripts allow-same-origin allow-popups"
-                    title={`Preview of ${fileInfo.name}`}
-                />
+                <div style={imageContainerStyle}>
+                    <img
+                        ref={imageRef}
+                        src={imageUrl}
+                        alt={fileInfo.name}
+                        style={imageStyle}
+                        onLoad={handleImageLoad}
+                        onError={handleImageError}
+                    />
+                </div>
                 <div style={footerStyle}>
                     <span>{formatFileSize(fileInfo.size)}</span>
-                    <span>Sandboxed preview</span>
+                    {imageDimensions.width > 0 && (
+                        <span>{imageDimensions.width} × {imageDimensions.height}px</span>
+                    )}
                 </div>
             </div>
             {fullscreenContent}
@@ -291,7 +294,7 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-HtmlFilePreview.propTypes = {
+ImagePreview.propTypes = {
     fileInfo: PropTypes.shape({
         id: PropTypes.string.isRequired,
         name: PropTypes.string.isRequired,
@@ -302,4 +305,4 @@ HtmlFilePreview.propTypes = {
     theme: PropTypes.object,
 };
 
-export default HtmlFilePreview;
+export default ImagePreview;
