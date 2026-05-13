@@ -1,6 +1,7 @@
 # Mattermost HTML Preview Plugin
 
 A Mattermost plugin that enables inline preview of HTML files directly in the message interface.
+![项目截图](./image-share.png)
 
 ## Features
 
